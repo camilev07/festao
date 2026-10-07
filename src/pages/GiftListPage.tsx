@@ -6,6 +6,7 @@ import {
   ChevronRight, Plus, Search, ExternalLink, Heart,
   Gift, Store, Tag, Check, X, ArrowUpDown, Trash2, Edit3
 } from 'lucide-react';
+import { formatBRL, parsePrice } from '../lib/eventUtils';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -110,9 +111,10 @@ export default function GiftListPage() {
       .filter(o => o.store.trim() && o.price)
       .map(o => ({
         store: o.store,
-        price: parseFloat(o.price.replace(',', '.')) || 0,
+        price: parsePrice(o.price),
         url: o.url || '#',
-      }));
+      }))
+      .filter(o => Number.isFinite(o.price) && o.price > 0);
 
     if (editingGift) {
       updateGift(event.id, editingGift, {
@@ -185,9 +187,9 @@ export default function GiftListPage() {
         {gifts.length > 0 && (
           <motion.div initial="hidden" animate="visible" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             {[
-              { label: 'Total estimado', value: `R$ ${totalExpected.toLocaleString('pt-BR')}`, icon: Tag, color: 'bg-blush/10 text-blush' },
+              { label: 'Total estimado', value: formatBRL(totalExpected), icon: Tag, color: 'bg-blush/10 text-blush' },
               { label: 'Recebidos', value: `${gifts.filter(g => g.received).length} de ${gifts.length}`, icon: Gift, color: 'bg-sage/10 text-sage' },
-              { label: 'Valor recebido', value: `R$ ${totalReceived.toLocaleString('pt-BR')}`, icon: Heart, color: 'bg-rose/10 text-rose' },
+              { label: 'Valor recebido', value: formatBRL(totalReceived), icon: Heart, color: 'bg-rose/10 text-rose' },
             ].map((stat, i) => (
               <motion.div key={i} custom={i + 2} variants={fadeUp} className="card-base">
                 <div className="flex items-center gap-3">
@@ -283,7 +285,7 @@ export default function GiftListPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-charcoal-light">Melhor preço</span>
                       <span className="font-display text-lg font-semibold text-sage">
-                        R$ {Math.min(...gift.options.map(o => o.price)).toFixed(2).replace('.', ',')}
+                        {formatBRL(Math.min(...gift.options.map(o => o.price)))}
                       </span>
                     </div>
                   </div>
@@ -318,7 +320,7 @@ export default function GiftListPage() {
                           <div key={j} className="flex items-center justify-between py-2 px-3 bg-white rounded-xl border border-charcoal/5">
                             <span className="text-xs font-medium">{opt.store}</span>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold">R$ {opt.price.toFixed(2).replace('.', ',')}</span>
+                              <span className="text-xs font-semibold">{formatBRL(opt.price)}</span>
                               {opt.url && opt.url !== '#' && (
                                 <a href={opt.url} target="_blank" rel="noopener noreferrer"
                                    className="w-6 h-6 bg-charcoal/5 rounded-lg flex items-center justify-center hover:bg-charcoal/10 transition-colors">
