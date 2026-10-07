@@ -26,6 +26,18 @@ const categories = [
   { id: 'espacos', label: 'Espaços', icon: Building2 },
 ];
 
+// Mapeia o nome exibido da categoria para o id usado nos filtros.
+// Antes, a comparação era feita com o texto (ex.: "decoração" vs "decoracao"),
+// o que quebrava os filtros de Decoração, Música/DJ e Espaços.
+const categoryIdByLabel: Record<string, string> = {
+  'Fotografia': 'fotografia',
+  'Decoração': 'decoracao',
+  'Buffet': 'buffet',
+  'Música/DJ': 'musica',
+  'Maquiagem': 'maquiagem',
+  'Espaços': 'espacos',
+};
+
 const professionals = [
   {
     id: 1,
@@ -161,7 +173,7 @@ export default function ServicesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const filteredProfessionals = professionals.filter(p => {
-    const matchesCategory = selectedCategory === 'all' || p.category.toLowerCase() === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || categoryIdByLabel[p.category] === selectedCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          p.location.toLowerCase().includes(searchQuery.toLowerCase());
