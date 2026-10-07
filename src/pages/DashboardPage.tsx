@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import {
   Users, Gift, Palette, CheckSquare, Calendar, Clock,
-  ChevronRight, MapPin, TrendingUp, MessageCircle, Star, Plus, Sparkles
+  ChevronRight, MapPin, TrendingUp, Star, Plus, Sparkles,
+  Globe, Copy, ExternalLink
 } from 'lucide-react';
+import { getCountdown, timeAgo, copyText } from '../lib/eventUtils';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -27,20 +30,32 @@ export default function DashboardPage() {
   const { id: eventId } = useParams<{ id: string }>();
   const events = useStore((s) => s.events);
   const event = events.find((e) => e.id === eventId);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   if (!event) {
     return (
       <main className="pt-24 pb-16 min-h-screen">
         <div className="max-w-7xl mx-auto section-padding text-center py-20">
           <Sparkles className="w-16 h-16 text-charcoal-light/20 mx-auto mb-4" />
-          <h1 className="font-display text-3xl font-semibold mb-2">Bem-vindo ao Festão!</h1>
-          <p className="text-charcoal-light mb-6 max-w-md mx-auto">
-            Você ainda não criou nenhum evento. Comece agora e organize tudo em um só lugar.
-          </p>
-          <Link to="/criar-evento" className="btn-blush inline-flex items-center gap-2 text-sm">
-            <Plus className="w-4 h-4" />
-            Criar meu primeiro evento
-          </Link>
+          {events.length > 0 ? (
+            <>
+              <h1 className="font-display text-3xl font-semibold mb-2">Seus eventos</h1>
+              <p className="text-charcoal-light mb-6 max-w-md mx-auto">
+                Escolha um evento para abrir o painel.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="font-display text-3xl font-semibold mb-2">Bem-vindo ao Festão!</h1>
+              <p className="text-charcoal-light mb-6 max-w-md mx-auto">
+                Você ainda não criou nenhum evento. Comece agora e organize tudo em um só lugar.
+              </p>
+              <Link to="/criar-evento" className="btn-blush inline-flex items-center gap-2 text-sm">
+                <Plus className="w-4 h-4" />
+                Criar meu primeiro evento
+              </Link>
+            </>
+          )}
           
           {events.length > 0 && (
             <div className="mt-12">
@@ -79,32 +94,58 @@ export default function DashboardPage() {
   const totalGuests = event.guests.length;
   const receivedGifts = event.gifts.filter(g => g.received).length;
   const eventDate = event.date ? new Date(event.date + 'T12:00:00') : new Date();
-  const today = new Date();
-  const daysLeft = Math.max(0, Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+  const countdown = getCountdown(event.date, event.time);
+
+  const handleCopyLink = async () => {
+    const ok = await copyText(`${window.location.origin}/e/${event.slug}`);
+    setCopyState(ok ? 'copied' : 'failed');
+    setTimeout(() => setCopyState('idle'), 2500);
+  };
 
   const stats = [
     { label: 'Convidados', value: totalGuests.toString(), change: `${confirmedCount} confirmados`, icon: Users, color: 'bg-blush/10 text-blush' },
     { label: 'Confirmações', value: totalGuests > 0 ? `${Math.round((confirmedCount / totalGuests) * 100)}%` : '0%', change: `${confirmedCount} de ${totalGuests}`, icon: CheckSquare, color: 'bg-sage/10 text-sage' },
     { label: 'Presentes', value: `${receivedGifts}/${event.gifts.length}`, change: `${event.gifts.length} na lista`, icon: Gift, color: 'bg-rose/10 text-rose' },
-    { label: 'Dias restantes', value: daysLeft.toString(), change: event.date ? new Date(event.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Defina a data', icon: Calendar, color: 'bg-charcoal/5 text-charcoal-light' },
+    {
+      label: 'Dias restantes',
+      value: countdown.status === 'future' ? String(countdown.days) : countdown.status === 'today' ? 'Hoje' : 'Realizado',
+      change: event.date ? eventDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Defina a data',
+      icon: Calendar,
+      color: 'bg-charcoal/5 text-charcoal-light'
+    },
   ];
 
   const shortcuts = [
     { icon: Users, title: 'Convidados', description: 'Gerenciar lista e confirmações', count: `${totalGuests} convidados`, link: `/eventos/${event.id}/convidados`, color: 'bg-blush/10 text-blush-dark' },
-    { icon: Palette, title: 'Personalizar página', description: 'Customizar visual do evento', link: `/eventos/${event.id}/personalizar`, color: 'bg-rose/10 text-rose' },
+    { icon: Palette, title: 'Personalizar página', description: 'Customizar visual do evento', count: event.published ? 'Publicada' : 'Rascunho', link: `/eventos/${event.id}/personalizar`, color: 'bg-rose/10 text-rose' },
     { icon: Gift, title: 'Lista de presentes', description: 'Adicionar e gerenciar presentes', count: `${event.gifts.length} itens`, link: `/eventos/${event.id}/presentes`, color: 'bg-sage/10 text-sage' },
     { icon: Star, title: 'Serviços e fornecedores', description: 'Encontrar profissionais', link: '/servicos', color: 'bg-charcoal/5 text-charcoal-light' },
   ];
 
+  const sortedGuests = [...event.guests].sort((a, b) => {
+    if (a.respondedAt && b.respondedAt) return b.respondedAt.localeCompare(a.respondedAt);
+    if (a.respondedAt) return -1;
+    if (b.respondedAt) return 1;
+    return 0;
+  });
+
   const recentActivity = [
-    ...event.guests.slice(-3).reverse().map(g => ({
-      text: `${g.name} ${g.rsvp === 'confirmed' ? 'confirmou presença' : g.rsvp === 'declined' ? 'recusou convite' : 'está pendente'}`,
-      time: 'Recente',
+    ...sortedGuests.slice(0, 3).map(g => ({
+      text: `${g.name} ${
+        g.rsvp === 'confirmed'
+          ? g.respondedVia === 'public'
+            ? 'confirmou presença pela página'
+            : 'foi marcado como confirmado'
+          : g.rsvp === 'declined'
+          ? 'recusou convite'
+          : 'está pendente'
+      }`,
+      time: timeAgo(g.respondedAt),
       icon: Users,
     })),
-    ...event.gifts.slice(-2).reverse().map(g => ({
+    ...[...event.gifts].slice(-2).reverse().map(g => ({
       text: `${g.received ? 'Presente recebido:' : 'Presente adicionado:'} ${g.name}`,
-      time: 'Recente',
+      time: '',
       icon: Gift,
     })),
   ];
@@ -128,7 +169,7 @@ export default function DashboardPage() {
                   {event.name}
                 </h1>
               </div>
-              <p className="text-charcoal-light flex items-center gap-2">
+              <p className="text-charcoal-light flex flex-wrap items-center gap-2">
                 {event.date && (
                   <>
                     <Calendar className="w-4 h-4" />
@@ -218,7 +259,9 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm">{activity.text}</p>
-                        <p className="text-xs text-charcoal-light/60">{activity.time}</p>
+                        {activity.time && (
+                          <p className="text-xs text-charcoal-light/60">{activity.time}</p>
+                        )}
                       </div>
                     </motion.div>
                   ))}
@@ -230,18 +273,32 @@ export default function DashboardPage() {
           {/* Sidebar */}
           <div>
             {/* Countdown */}
-            {daysLeft > 0 && (
-              <motion.div initial="hidden" animate="visible">
-                <motion.div custom={6} variants={fadeUp} className="card-base bg-charcoal text-ivory mb-6">
-                  <div className="text-center">
-                    <Clock className="w-8 h-8 text-blush mx-auto mb-3" />
-                    <p className="text-ivory/60 text-xs uppercase tracking-widest mb-2">Faltam</p>
-                    <p className="font-display text-5xl font-semibold mb-1">{daysLeft}</p>
-                    <p className="text-ivory/60 text-sm">dias para o grande dia</p>
-                  </div>
-                </motion.div>
+            <motion.div initial="hidden" animate="visible">
+              <motion.div custom={6} variants={fadeUp} className="card-base bg-charcoal text-ivory mb-6">
+                <div className="text-center">
+                  <Clock className="w-8 h-8 text-blush mx-auto mb-3" />
+                  {countdown.status === 'future' ? (
+                    <>
+                      <p className="text-ivory/60 text-xs uppercase tracking-widest mb-2">Faltam</p>
+                      <p className="font-display text-5xl font-semibold mb-1">{countdown.days}</p>
+                      <p className="text-ivory/60 text-sm">dias para o grande dia</p>
+                    </>
+                  ) : countdown.status === 'today' ? (
+                    <>
+                      <p className="font-display text-3xl font-semibold mb-1">É hoje! 🎉</p>
+                      <p className="text-ivory/60 text-sm">{event.time || 'Grande dia'}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-display text-3xl font-semibold mb-1">Evento realizado</p>
+                      <p className="text-ivory/60 text-sm">
+                        {event.date ? eventDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+                      </p>
+                    </>
+                  )}
+                </div>
               </motion.div>
-            )}
+            </motion.div>
 
             {/* Quick RSVP */}
             {event.guests.length > 0 && (
@@ -278,22 +335,59 @@ export default function DashboardPage() {
               </motion.div>
             )}
 
-            {/* Message */}
+            {/* Event page */}
             <motion.div initial="hidden" animate="visible">
               <motion.div custom={8} variants={fadeUp} className="card-base bg-blush/5 border border-blush/10">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 bg-blush/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <MessageCircle className="w-5 h-5 text-blush" />
+                    <Globe className="w-5 h-5 text-blush" />
                   </div>
-                  <div>
-                    <h3 className="font-medium text-sm mb-1">Enviar atualização</h3>
-                    <p className="text-xs text-charcoal-light mb-3">
-                      Envie uma mensagem para todos os convidados de uma vez.
-                    </p>
-                    <button className="text-xs bg-blush text-white px-4 py-2 rounded-xl font-medium
-                                       hover:bg-blush-dark transition-colors">
-                      Enviar mensagem
-                    </button>
+                  <div className="min-w-0">
+                    <h3 className="font-medium text-sm mb-1">Página do evento</h3>
+                    {event.published && event.slug ? (
+                      <>
+                        <p className="text-xs text-charcoal-light mb-3">
+                          Sua página está no ar.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={handleCopyLink}
+                            className="text-xs bg-blush text-white px-4 py-2 rounded-xl font-medium
+                                       hover:bg-blush-dark transition-colors inline-flex items-center gap-1.5 min-h-[40px]"
+                          >
+                            {copyState === 'copied' ? 'Copiado!' : copyState === 'failed' ? 'Selecione e copie' : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                Copiar link
+                              </>
+                            )}
+                          </button>
+                          <a
+                            href={`/e/${event.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs bg-white border border-charcoal/15 px-4 py-2 rounded-xl font-medium
+                                       hover:bg-cream transition-colors inline-flex items-center gap-1.5 min-h-[40px]"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Abrir página
+                          </a>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-charcoal-light mb-3">
+                          Sua página ainda não foi publicada.
+                        </p>
+                        <Link
+                          to={`/eventos/${event.id}/personalizar`}
+                          className="text-xs bg-blush text-white px-4 py-2 rounded-xl font-medium
+                                     hover:bg-blush-dark transition-colors inline-flex items-center gap-1.5 min-h-[40px]"
+                        >
+                          Publicar página
+                        </Link>
+                      </>
+                    )}
                   </div>
                 </div>
               </motion.div>
