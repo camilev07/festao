@@ -9,6 +9,7 @@ import GuestsPage from './pages/GuestsPage';
 import GiftListPage from './pages/GiftListPage';
 import PersonalizationPage from './pages/PersonalizationPage';
 import ServicesPage from './pages/ServicesPage';
+import AgentePage from './pages/AgentePage';
 import ProfessionalProfilePage from './pages/ProfessionalProfilePage';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/agente" element={<AgentePage />} />
           <Route path="/criar-evento" element={<CreateEventPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/dashboard/:id" element={<DashboardPage />} />

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MessageCircle, X, Send, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { responder } from '../lib/agente';
 
 export default function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,15 +14,14 @@ export default function AIAssistant() {
   ]);
 
   const handleSend = () => {
-    if (!message.trim()) return;
-    setMessages(prev => [...prev, { role: 'user', text: message }]);
+    const pergunta = message.trim();
+    if (!pergunta) return;
+    setMessages(prev => [...prev, { role: 'user', text: pergunta }]);
     setMessage('');
+    // Resposta do agente de demonstracao (ver src/lib/agente.ts)
     setTimeout(() => {
-      setMessages(prev => [...prev, {
-        role: 'ai',
-        text: 'Obrigada pela sua mensagem! Em breve estarei totalmente integrada e poderei ajudar com sugestões personalizadas para o seu evento. Por enquanto, explore as funcionalidades da plataforma! 🎉'
-      }]);
-    }, 1000);
+      setMessages(prev => [...prev, { role: 'ai', text: responder(pergunta) }]);
+    }, 600);
   };
 
   return (
