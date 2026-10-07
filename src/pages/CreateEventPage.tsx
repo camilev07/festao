@@ -119,7 +119,7 @@ export default function CreateEventPage() {
                 )}
               </div>
               {i < steps.length - 1 && (
-                <div className={`w-12 h-0.5 rounded-full transition-colors duration-300 ${
+                <div className={`w-6 sm:w-12 h-0.5 rounded-full transition-colors duration-300 ${
                   i < step ? 'bg-sage' : 'bg-cream'
                 }`} />
               )}
@@ -206,7 +206,7 @@ export default function CreateEventPage() {
                 {errors.hosts && <p className="text-rose text-xs mt-1">{errors.hosts}</p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-charcoal-light block mb-1.5">
                     Data *
@@ -240,7 +240,7 @@ export default function CreateEventPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-charcoal-light block mb-1.5">
                     Local / Espaço *
@@ -335,7 +335,7 @@ export default function CreateEventPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-blush" />
                       <span>{formData.date ? new Date(formData.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : ''}</span>

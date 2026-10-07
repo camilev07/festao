@@ -390,7 +390,7 @@ export default function GiftListPage() {
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-card-hover max-h-[90vh] overflow-y-auto"
+                className="bg-white rounded-3xl p-5 sm:p-8 w-full max-w-lg shadow-card-hover max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between mb-6">
@@ -501,7 +501,7 @@ export default function GiftListPage() {
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-card-hover"
+                className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-card-hover max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
                 <h3 className="font-display text-lg font-semibold mb-2">Marcar como recebido</h3>

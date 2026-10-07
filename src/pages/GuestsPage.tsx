@@ -204,7 +204,7 @@ export default function GuestsPage() {
             { label: 'Recusaram', value: stats.declined, color: 'bg-rose/10 text-rose', icon: XCircle },
             { label: '+1', value: stats.plusOnes, color: 'bg-blush/10 text-blush-dark', icon: UserPlus },
           ].map((stat, i) => (
-            <motion.div key={i} custom={i + 2} variants={fadeUp} className="card-base p-4">
+            <motion.div key={i} custom={i + 2} variants={fadeUp} className={`card-base p-4 ${i === 4 ? 'col-span-2 sm:col-span-1' : ''}`}>
               <div className="flex items-center gap-2 mb-2">
                 <stat.icon className="w-4 h-4 text-charcoal-light" />
                 <span className="text-xs text-charcoal-light">{stat.label}</span>
@@ -227,7 +227,7 @@ export default function GuestsPage() {
                          outline-none focus:ring-2 focus:ring-blush/30 transition-shadow"
             />
           </motion.div>
-          <motion.div custom={8} variants={fadeUp} className="flex gap-2">
+          <motion.div custom={8} variants={fadeUp} className="flex gap-2 overflow-x-auto pb-1">
             {(['all', 'confirmed', 'pending', 'declined'] as const).map((filter) => (
               <button
                 key={filter}
@@ -272,7 +272,7 @@ export default function GuestsPage() {
                     key={guest.id}
                     custom={i + 9}
                     variants={fadeUp}
-                    className="card-base flex items-center gap-4 py-3"
+                    className="card-base flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-2 py-3"
                   >
                     {/* Avatar */}
                     <div className="w-10 h-10 bg-blush/10 rounded-full flex items-center justify-center flex-shrink-0">
@@ -322,40 +322,42 @@ export default function GuestsPage() {
                       )}
                     </div>
 
-                    {/* RSVP Status */}
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={guest.rsvp}
-                        onChange={(e) => updateGuest(event.id, guest.id, {
-                          rsvp: e.target.value as Guest['rsvp'],
-                          respondedAt: new Date().toISOString(),
-                          respondedVia: 'host',
-                        })}
-                        className={`text-xs font-medium px-3 py-1.5 rounded-xl border-0 outline-none cursor-pointer appearance-none pr-6 bg-no-repeat bg-[right_0.375rem_center] bg-[length:0.75rem] ${rsvpColors[guest.rsvp]}`}
-                        style={{
-                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234A4543' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
-                        }}
-                      >
-                        <option value="pending">Pendente</option>
-                        <option value="confirmed">Confirmado</option>
-                        <option value="declined">Recusou</option>
-                      </select>
-                    </div>
+                    {/* RSVP + Actions (segunda linha em telas pequenas) */}
+                    <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3">
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={guest.rsvp}
+                          onChange={(e) => updateGuest(event.id, guest.id, {
+                            rsvp: e.target.value as Guest['rsvp'],
+                            respondedAt: new Date().toISOString(),
+                            respondedVia: 'host',
+                          })}
+                          className={`text-xs font-medium px-3 py-1.5 rounded-xl border-0 outline-none cursor-pointer appearance-none pr-6 bg-no-repeat bg-[right_0.375rem_center] bg-[length:0.75rem] ${rsvpColors[guest.rsvp]}`}
+                          style={{
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234A4543' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                          }}
+                        >
+                          <option value="pending">Pendente</option>
+                          <option value="confirmed">Confirmado</option>
+                          <option value="declined">Recusou</option>
+                        </select>
+                      </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openEditModal(guest)}
-                        className="p-2 rounded-lg hover:bg-cream transition-colors"
-                      >
-                        <Edit3 className="w-4 h-4 text-charcoal-light" />
-                      </button>
-                      <button
-                        onClick={() => removeGuest(event.id, guest.id)}
-                        className="p-2 rounded-lg hover:bg-rose/10 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4 text-rose" />
-                      </button>
+                      {/* Actions */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEditModal(guest)}
+                          className="p-2 rounded-lg hover:bg-cream transition-colors"
+                        >
+                          <Edit3 className="w-4 h-4 text-charcoal-light" />
+                        </button>
+                        <button
+                          onClick={() => removeGuest(event.id, guest.id)}
+                          className="p-2 rounded-lg hover:bg-rose/10 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4 text-rose" />
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 );
@@ -378,7 +380,7 @@ export default function GuestsPage() {
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white rounded-3xl p-8 w-full max-w-md shadow-card-hover max-h-[90vh] overflow-y-auto"
+                className="bg-white rounded-3xl p-5 sm:p-8 w-full max-w-md shadow-card-hover max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between mb-6">
@@ -510,7 +512,7 @@ export default function GuestsPage() {
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white rounded-3xl p-8 w-full max-w-md shadow-card-hover"
+                className="bg-white rounded-3xl p-5 sm:p-8 w-full max-w-md shadow-card-hover max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between mb-6">
