@@ -81,11 +81,6 @@ export default function PublicEventPage() {
     setRsvpDone({ name: rsvpName.trim(), choice: rsvpChoice });
   };
 
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 30000);
-    return () => window.clearInterval(id);
-  }, []);
-
   if (!event) {
     return (
       <main className="min-h-screen bg-cream">
@@ -303,7 +298,7 @@ export default function PublicEventPage() {
                           className="px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 min-h-[44px] border"
                           style={
                             rsvpChoice === opt.value
-                              ? { backgroundColor: secondaryHex, borderColor: secondaryHex, color: '#fff' }
+                              ? { backgroundColor: primaryHex, borderColor: primaryHex, color: '#fff' }
                               : { backgroundColor: '#fff', borderColor: 'rgba(45,41,38,0.15)', color: '#4A4543' }
                           }
                         >

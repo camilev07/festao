@@ -288,12 +288,17 @@ export default function DashboardPage() {
                       <p className="font-display text-3xl font-semibold mb-1">É hoje! 🎉</p>
                       <p className="text-ivory/60 text-sm">{event.time || 'Grande dia'}</p>
                     </>
-                  ) : (
+                  ) : event.date ? (
                     <>
                       <p className="font-display text-3xl font-semibold mb-1">Evento realizado</p>
                       <p className="text-ivory/60 text-sm">
-                        {event.date ? eventDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+                        {eventDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
                       </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-display text-3xl font-semibold mb-1">Defina a data</p>
+                      <p className="text-ivory/60 text-sm">Para ver a contagem regressiva</p>
                     </>
                   )}
                 </div>
