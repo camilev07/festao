@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   ChevronRight, Search, Star, MapPin, Camera, Palette,
   UtensilsCrossed, Music, Brush, Building2, Heart,
-  SlidersHorizontal, Grid3X3, List, Filter
+  SlidersHorizontal, Grid3X3, List
 } from 'lucide-react';
 
 const fadeUp = {

@@ -32,7 +32,7 @@ export default function Footer() {
               <li><Link to="/criar-evento" className="text-sm hover:text-blush transition-colors">Criar Evento</Link></li>
 
               <li><Link to="/dashboard" className="text-sm hover:text-blush transition-colors">Dashboard</Link></li>
-              <li><Link to="/presentes" className="text-sm hover:text-blush transition-colors">Lista de Presentes</Link></li>
+              <li><Link to="/dashboard" className="text-sm hover:text-blush transition-colors">Lista de Presentes</Link></li>
               <li><Link to="/servicos" className="text-sm hover:text-blush transition-colors">Serviços</Link></li>
             </ul>
           </div>

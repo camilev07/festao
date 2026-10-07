@@ -2,7 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ChevronRight, Star, MapPin, Heart, Share2, Camera,
-  Phone, Mail, Instagram, ExternalLink, MessageCircle,
+  Phone, Mail, Instagram, MessageCircle,
   Calendar, Clock, Award, CheckCircle2, ChevronLeft
 } from 'lucide-react';
 

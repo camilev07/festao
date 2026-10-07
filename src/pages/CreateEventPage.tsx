@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
+import type { Event as EventModel } from '../store/useStore';
 import {
   Heart, PartyPopper, Cake, Building2, Sparkles,
   ChevronRight, ChevronLeft, MapPin, Calendar, Clock,
-  FileText, Users, CheckCircle2, ArrowRight, Star
+  CheckCircle2
 } from 'lucide-react';
 
 const eventTypes = [
@@ -72,7 +73,7 @@ export default function CreateEventPage() {
   const handleCreate = () => {
     const id = createEvent({
       name: formData.name,
-      type: formData.type as Event['type'],
+      type: formData.type as EventModel['type'],
       date: formData.date,
       time: formData.time,
       venue: formData.venue,
@@ -102,7 +103,7 @@ export default function CreateEventPage() {
 
         {/* Progress */}
         <div className="flex items-center justify-center gap-2 mb-10">
-          {steps.map((s, i) => (
+          {steps.map((_, i) => (
             <div key={i} className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-300 ${
                 i < step

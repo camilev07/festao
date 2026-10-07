@@ -3,9 +3,7 @@ import { motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import {
   Users, Gift, Palette, CheckSquare, Calendar, Clock,
-  ChevronRight, Camera, MapPin, Bell, Settings,
-  TrendingUp, MessageCircle, Star, Plus, Sparkles,
-  PartyPopper, Cake, Building2, Heart
+  ChevronRight, MapPin, TrendingUp, MessageCircle, Star, Plus, Sparkles
 } from 'lucide-react';
 
 const fadeUp = {
@@ -80,7 +78,6 @@ export default function DashboardPage() {
   const confirmedCount = event.guests.filter(g => g.rsvp === 'confirmed').length;
   const totalGuests = event.guests.length;
   const receivedGifts = event.gifts.filter(g => g.received).length;
-  const totalGifts = event.guests.length;
   const eventDate = event.date ? new Date(event.date + 'T12:00:00') : new Date();
   const today = new Date();
   const daysLeft = Math.max(0, Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));

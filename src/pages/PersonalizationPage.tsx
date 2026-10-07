@@ -3,10 +3,11 @@ import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import {
-  ChevronRight, Palette, Type, Image, Eye, EyeOff,
-  CheckCircle2, Sparkles, Heart, Users, Gift, Clock,
-  Save
+  ChevronRight, Palette, Type, Eye,
+  CheckCircle2, Heart, Users, Gift, Clock,
+  Globe, ExternalLink, Copy
 } from 'lucide-react';
+import { copyText, slugify } from '../lib/eventUtils';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -32,8 +33,9 @@ export default function PersonalizationPage() {
   const { id: eventId } = useParams<{ id: string }>();
   const events = useStore((s) => s.events);
   const updatePersonalization = useStore((s) => s.updatePersonalization);
+  const updateEvent = useStore((s) => s.updateEvent);
   const event = events.find((e) => e.id === eventId);
-  const [saved, setSaved] = useState(false);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   if (!event) {
     return (
@@ -52,9 +54,27 @@ export default function PersonalizationPage() {
 
   const p = event.personalization;
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handlePublish = () => {
+    if (event.published) return;
+    let slug = event.slug;
+    if (!slug) {
+      const base = slugify(event.name) || 'evento';
+      slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+      while (events.some((ev) => ev.slug === slug)) {
+        slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+      }
+    }
+    updateEvent(event.id, {
+      published: true,
+      slug,
+      publishedAt: new Date().toISOString(),
+    });
+  };
+
+  const handleCopyLink = async () => {
+    const ok = await copyText(`${window.location.origin}/e/${event.slug}`);
+    setCopyState(ok ? 'copied' : 'failed');
+    setTimeout(() => setCopyState('idle'), 2500);
   };
 
   return (
@@ -79,23 +99,27 @@ export default function PersonalizationPage() {
                 <span className="italic text-rose">Personalizar</span> evento
               </h1>
               <p className="text-charcoal-light">{event.name}</p>
+              <p className="text-xs text-charcoal-light/70 mt-1">As alterações são salvas automaticamente</p>
             </div>
-            <button
-              onClick={handleSave}
-              className="btn-primary flex items-center justify-center gap-2 text-xs"
-            >
-              {saved ? (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  Salvo!
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Salvar alterações
-                </>
-              )}
-            </button>
+            {event.published ? (
+              <a
+                href={`/e/${event.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary inline-flex items-center justify-center gap-2 text-xs"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Abrir página
+              </a>
+            ) : (
+              <button
+                onClick={handlePublish}
+                className="btn-primary inline-flex items-center justify-center gap-2 text-xs"
+              >
+                <Globe className="w-4 h-4" />
+                Publicar página
+              </button>
+            )}
           </motion.div>
         </motion.div>
 
@@ -239,6 +263,64 @@ export default function PersonalizationPage() {
                     </div>
                   ))}
                 </div>
+              </motion.div>
+            </motion.div>
+
+            {/* Publication */}
+            <motion.div initial="hidden" animate="visible">
+              <motion.div custom={5} variants={fadeUp} className="card-base">
+                <div className="flex items-center gap-2 mb-4">
+                  <Globe className="w-5 h-5 text-blush" />
+                  <h2 className="font-display text-lg font-semibold">Publicação</h2>
+                </div>
+
+                <div className="flex items-center gap-2 mb-4">
+                  <span className={`text-[10px] font-medium px-2 py-1 rounded-full ${
+                    event.published ? 'bg-sage/10 text-sage' : 'bg-charcoal/5 text-charcoal-light'
+                  }`}>
+                    {event.published ? 'Publicada' : 'Rascunho'}
+                  </span>
+                  {event.published && event.publishedAt && (
+                    <span className="text-[10px] text-charcoal-light">
+                      {new Date(event.publishedAt).toLocaleDateString('pt-BR')}
+                    </span>
+                  )}
+                </div>
+
+                {event.published && event.slug ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${window.location.origin}/e/${event.slug}`}
+                        onFocus={(e) => e.target.select()}
+                        className="flex-1 min-w-0 bg-cream rounded-xl px-4 py-2.5 text-xs text-charcoal-light outline-none focus:ring-2 focus:ring-blush/30"
+                      />
+                      <button
+                        onClick={handleCopyLink}
+                        className="btn-secondary text-xs inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
+                      >
+                        {copyState === 'copied' ? (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                        {copyState === 'copied' ? 'Copiado!' : copyState === 'failed' ? 'Selecione e copie' : 'Copiar link'}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => updateEvent(event.id, { published: false })}
+                      className="btn-secondary text-xs w-full sm:w-auto"
+                    >
+                      Despublicar
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-charcoal-light">
+                    Sua página ainda não foi publicada. Use o botão "Publicar página" no topo para gerar o link.
+                  </p>
+                )}
               </motion.div>
             </motion.div>
           </div>

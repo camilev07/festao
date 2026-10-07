@@ -5,8 +5,7 @@ import { useStore } from '../store/useStore';
 import type { Guest } from '../store/useStore';
 import {
   ChevronRight, Plus, Search, Users, CheckCircle2, XCircle,
-  Clock, UserPlus, X, Phone, Mail, Edit3, Trash2,
-  Filter, Download, MoreHorizontal, UserCheck, UserX, ChevronDown
+  Clock, UserPlus, X, Phone, Mail, Edit3, Trash2
 } from 'lucide-react';
 
 const fadeUp = {
@@ -154,12 +153,6 @@ export default function GuestsPage() {
     declined: 'Recusou',
   };
 
-  const rsvpIcons = {
-    confirmed: CheckCircle2,
-    pending: Clock,
-    declined: XCircle,
-  };
-
   return (
     <main className="pt-24 pb-16 min-h-screen">
       <div className="max-w-7xl mx-auto section-padding">
@@ -274,7 +267,6 @@ export default function GuestsPage() {
           ) : (
             <div className="space-y-2">
               {filteredGuests.map((guest, i) => {
-                const RsvpIcon = rsvpIcons[guest.rsvp];
                 return (
                   <motion.div
                     key={guest.id}

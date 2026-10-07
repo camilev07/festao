@@ -11,6 +11,8 @@ export interface Guest {
   plusOneName?: string;
   table?: string;
   notes?: string;
+  respondedAt?: string;
+  respondedVia?: 'host' | 'public';
 }
 
 export interface GiftItem {
@@ -54,6 +56,9 @@ export interface Event {
   gifts: GiftItem[];
   personalization: EventPersonalization;
   createdAt: string;
+  published: boolean;
+  slug: string;
+  publishedAt?: string;
 }
 
 interface AppState {
@@ -61,7 +66,7 @@ interface AppState {
   activeEventId: string | null;
   
   // Event actions
-  createEvent: (event: Omit<Event, 'id' | 'createdAt' | 'guests' | 'gifts' | 'personalization'>) => string;
+  createEvent: (event: Omit<Event, 'id' | 'createdAt' | 'guests' | 'gifts' | 'personalization' | 'published' | 'slug' | 'publishedAt'>) => string;
   updateEvent: (id: string, updates: Partial<Event>) => void;
   deleteEvent: (id: string) => void;
   setActiveEvent: (id: string | null) => void;
@@ -96,6 +101,37 @@ const defaultPersonalization: EventPersonalization = {
 let idCounter = 0;
 const genId = () => `${Date.now()}-${++idCounter}-${Math.random().toString(36).slice(2, 7)}`;
 
+const migrate = (persistedState: unknown): { events: Event[]; activeEventId: string | null } => {
+  const state = (persistedState ?? {}) as { events?: unknown; activeEventId?: unknown };
+  const events = (Array.isArray(state.events) ? state.events : []).map((item) => {
+    const e = (item ?? {}) as Partial<Omit<Event, 'personalization'>> & {
+      personalization?: Partial<EventPersonalization> | null;
+    };
+    return {
+      ...e,
+      id: e.id ?? genId(),
+      name: e.name ?? '',
+      type: e.type ?? 'outro',
+      date: e.date ?? '',
+      time: e.time ?? '',
+      venue: e.venue ?? '',
+      city: e.city ?? '',
+      description: e.description ?? '',
+      hosts: e.hosts ?? '',
+      guests: e.guests ?? [],
+      gifts: e.gifts ?? [],
+      personalization: { ...defaultPersonalization, ...(e.personalization ?? {}) },
+      createdAt: e.createdAt ?? new Date().toISOString(),
+      published: e.published ?? false,
+      slug: e.slug ?? '',
+    };
+  });
+  return {
+    events,
+    activeEventId: typeof state.activeEventId === 'string' ? state.activeEventId : null,
+  };
+};
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -111,6 +147,8 @@ export const useStore = create<AppState>()(
           gifts: [],
           personalization: { ...defaultPersonalization },
           createdAt: new Date().toISOString(),
+          published: false,
+          slug: '',
         };
         set((state) => ({
           events: [...state.events, newEvent],
@@ -245,6 +283,14 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'festsao-storage',
+      version: 1,
+      migrate,
     }
   )
 );
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'festsao-storage') useStore.persist.rehydrate();
+  });
+}
