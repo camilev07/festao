@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import {
   ChevronRight, Palette, Type, Eye,
   CheckCircle2, Heart, Users, Gift, Clock,
-  Globe, ExternalLink, Copy
+  Globe, ExternalLink, Copy, Image as ImageIcon, Info
 } from 'lucide-react';
-import { copyText, slugify } from '../lib/eventUtils';
+import { copyText, slugify, safeHex, getCountdown, compressImage } from '../lib/eventUtils';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -36,6 +36,32 @@ export default function PersonalizationPage() {
   const updateEvent = useStore((s) => s.updateEvent);
   const event = events.find((e) => e.id === eventId);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [draftPrimary, setDraftPrimary] = useState(() => event?.personalization.primaryColor ?? '');
+  const [draftSecondary, setDraftSecondary] = useState(() => event?.personalization.secondaryColor ?? '');
+  const [heroDraft, setHeroDraft] = useState(() =>
+    event?.personalization.heroImage.startsWith('http') ? event.personalization.heroImage : ''
+  );
+  const [heroError, setHeroError] = useState('');
+  const [heroUploading, setHeroUploading] = useState(false);
+  const [heroFailed, setHeroFailed] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  // Sincroniza os rascunhos quando a store muda (presets, seletor de cor, upload/remover capa).
+  useEffect(() => {
+    setDraftPrimary(event?.personalization.primaryColor ?? '');
+    setDraftSecondary(event?.personalization.secondaryColor ?? '');
+  }, [event?.personalization.primaryColor, event?.personalization.secondaryColor]);
+
+  useEffect(() => {
+    const hero = event?.personalization.heroImage ?? '';
+    setHeroDraft(hero.startsWith('http') ? hero : '');
+    setHeroFailed(false);
+  }, [event?.personalization.heroImage]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 30000);
+    return () => window.clearInterval(id);
+  }, []);
 
   if (!event) {
     return (
@@ -53,6 +79,9 @@ export default function PersonalizationPage() {
   }
 
   const p = event.personalization;
+  const primaryHex = safeHex(p.primaryColor, '#D4A89C');
+  const secondaryHex = safeHex(p.secondaryColor, '#C47D6B');
+  const countdown = getCountdown(event.date, event.time, now);
 
   const handlePublish = () => {
     if (event.published) return;
@@ -75,6 +104,39 @@ export default function PersonalizationPage() {
     const ok = await copyText(`${window.location.origin}/e/${event.slug}`);
     setCopyState(ok ? 'copied' : 'failed');
     setTimeout(() => setCopyState('idle'), 2500);
+  };
+
+  const isHex = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
+
+  const handleHexChange = (field: 'primaryColor' | 'secondaryColor', value: string) => {
+    if (field === 'primaryColor') {
+      setDraftPrimary(value);
+    } else {
+      setDraftSecondary(value);
+    }
+    if (isHex(value)) {
+      updatePersonalization(event.id, { [field]: value });
+    }
+  };
+
+  const handleHeroUrl = () => {
+    const url = heroDraft.trim();
+    if (!url || url === p.heroImage) return;
+    updatePersonalization(event.id, { heroImage: url.startsWith('http') ? url : '' });
+  };
+
+  const handleHeroFile = async (file: File | null | undefined) => {
+    if (!file) return;
+    setHeroError('');
+    setHeroUploading(true);
+    try {
+      const dataUrl = await compressImage(file);
+      updatePersonalization(event.id, { heroImage: dataUrl });
+    } catch (err) {
+      setHeroError(err instanceof Error ? err.message : 'Não foi possível enviar a imagem.');
+    } finally {
+      setHeroUploading(false);
+    }
   };
 
   return (
@@ -126,9 +188,89 @@ export default function PersonalizationPage() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Settings */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Colors */}
+            {/* Event info */}
             <motion.div initial="hidden" animate="visible">
               <motion.div custom={2} variants={fadeUp} className="card-base">
+                <div className="flex items-center gap-2 mb-4">
+                  <Info className="w-5 h-5 text-blush" />
+                  <h2 className="font-display text-lg font-semibold">Informações do evento</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-charcoal-light block mb-1.5">Nome do evento</label>
+                    <input
+                      type="text"
+                      value={event.name}
+                      onChange={(e) => updateEvent(event.id, { name: e.target.value })}
+                      placeholder="Ex.: Casamento de Ana & Lucas"
+                      className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-charcoal-light block mb-1.5">Organizadores</label>
+                    <input
+                      type="text"
+                      value={event.hosts}
+                      onChange={(e) => updateEvent(event.id, { hosts: e.target.value })}
+                      placeholder="Ex.: Ana & Lucas"
+                      className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-charcoal-light block mb-1.5">Data</label>
+                    <input
+                      type="date"
+                      value={event.date}
+                      onChange={(e) => updateEvent(event.id, { date: e.target.value })}
+                      className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-charcoal-light block mb-1.5">Horário</label>
+                    <input
+                      type="time"
+                      value={event.time}
+                      onChange={(e) => updateEvent(event.id, { time: e.target.value })}
+                      className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-charcoal-light block mb-1.5">Local</label>
+                    <input
+                      type="text"
+                      value={event.venue}
+                      onChange={(e) => updateEvent(event.id, { venue: e.target.value })}
+                      placeholder="Ex.: Salão de festas"
+                      className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-charcoal-light block mb-1.5">Cidade</label>
+                    <input
+                      type="text"
+                      value={event.city}
+                      onChange={(e) => updateEvent(event.id, { city: e.target.value })}
+                      placeholder="Ex.: São Paulo"
+                      className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-charcoal-light block mb-1.5">Mensagem para os convidados</label>
+                    <textarea
+                      value={event.description}
+                      onChange={(e) => updateEvent(event.id, { description: e.target.value })}
+                      placeholder="Escreva uma mensagem especial..."
+                      rows={3}
+                      className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30 transition-shadow resize-none"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+
+            {/* Colors */}
+            <motion.div initial="hidden" animate="visible">
+              <motion.div custom={3} variants={fadeUp} className="card-base">
                 <div className="flex items-center gap-2 mb-4">
                   <Palette className="w-5 h-5 text-blush" />
                   <h2 className="font-display text-lg font-semibold">Cores</h2>
@@ -169,16 +311,18 @@ export default function PersonalizationPage() {
                     <div className="flex items-center gap-2">
                       <input
                         type="color"
-                        value={p.primaryColor}
+                        value={safeHex(p.primaryColor, '#D4A89C')}
                         onChange={(e) => updatePersonalization(event.id, { primaryColor: e.target.value })}
                         className="w-10 h-10 rounded-xl border-0 cursor-pointer"
                       />
                       <input
                         type="text"
-                        value={p.primaryColor}
-                        onChange={(e) => updatePersonalization(event.id, { primaryColor: e.target.value })}
-                        className="flex-1 bg-cream rounded-xl px-3 py-2 text-sm font-mono outline-none
-                                   focus:ring-2 focus:ring-blush/30"
+                        value={draftPrimary}
+                        onChange={(e) => handleHexChange('primaryColor', e.target.value)}
+                        placeholder="#D4A89C"
+                        className={`flex-1 min-w-0 bg-cream rounded-xl px-3 py-2 text-sm font-mono outline-none focus:ring-2 ${
+                          isHex(draftPrimary) ? 'focus:ring-blush/30' : 'ring-2 ring-rose'
+                        }`}
                       />
                     </div>
                   </div>
@@ -187,16 +331,18 @@ export default function PersonalizationPage() {
                     <div className="flex items-center gap-2">
                       <input
                         type="color"
-                        value={p.secondaryColor}
+                        value={safeHex(p.secondaryColor, '#C47D6B')}
                         onChange={(e) => updatePersonalization(event.id, { secondaryColor: e.target.value })}
                         className="w-10 h-10 rounded-xl border-0 cursor-pointer"
                       />
                       <input
                         type="text"
-                        value={p.secondaryColor}
-                        onChange={(e) => updatePersonalization(event.id, { secondaryColor: e.target.value })}
-                        className="flex-1 bg-cream rounded-xl px-3 py-2 text-sm font-mono outline-none
-                                   focus:ring-2 focus:ring-blush/30"
+                        value={draftSecondary}
+                        onChange={(e) => handleHexChange('secondaryColor', e.target.value)}
+                        placeholder="#C47D6B"
+                        className={`flex-1 min-w-0 bg-cream rounded-xl px-3 py-2 text-sm font-mono outline-none focus:ring-2 ${
+                          isHex(draftSecondary) ? 'focus:ring-blush/30' : 'ring-2 ring-rose'
+                        }`}
                       />
                     </div>
                   </div>
@@ -204,9 +350,77 @@ export default function PersonalizationPage() {
               </motion.div>
             </motion.div>
 
+            {/* Cover */}
+            <motion.div initial="hidden" animate="visible">
+              <motion.div custom={4} variants={fadeUp} className="card-base">
+                <div className="flex items-center gap-2 mb-4">
+                  <ImageIcon className="w-5 h-5 text-blush" />
+                  <h2 className="font-display text-lg font-semibold">Capa</h2>
+                </div>
+
+                {p.heroImage && !heroFailed && (
+                  <img
+                    src={p.heroImage}
+                    alt="Capa do evento"
+                    onError={() => setHeroFailed(true)}
+                    className="w-full h-40 object-cover rounded-xl mb-4 border border-charcoal/5"
+                  />
+                )}
+
+                <label className="text-xs font-medium text-charcoal-light block mb-1.5">URL da imagem</label>
+                <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                  <input
+                    type="url"
+                    value={heroDraft}
+                    onChange={(e) => setHeroDraft(e.target.value)}
+                    onBlur={handleHeroUrl}
+                    placeholder="https://..."
+                    className="flex-1 min-w-0 bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleHeroUrl}
+                    className="btn-secondary text-xs whitespace-nowrap"
+                  >
+                    Salvar URL
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <label className={`btn-secondary text-xs inline-flex items-center gap-1.5 cursor-pointer ${heroUploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    {heroUploading ? 'Enviando...' : 'Enviar imagem'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      disabled={heroUploading}
+                      onChange={(e) => {
+                        handleHeroFile(e.target.files?.[0]);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  {p.heroImage && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updatePersonalization(event.id, { heroImage: '' });
+                        setHeroError('');
+                      }}
+                      className="btn-secondary text-xs text-rose"
+                    >
+                      Remover capa
+                    </button>
+                  )}
+                </div>
+                {heroError && <p className="text-rose text-xs mt-2">{heroError}</p>}
+              </motion.div>
+            </motion.div>
+
             {/* Tagline */}
             <motion.div initial="hidden" animate="visible">
-              <motion.div custom={3} variants={fadeUp} className="card-base">
+              <motion.div custom={5} variants={fadeUp} className="card-base">
                 <div className="flex items-center gap-2 mb-4">
                   <Type className="w-5 h-5 text-blush" />
                   <h2 className="font-display text-lg font-semibold">Frase de destaque</h2>
@@ -224,7 +438,7 @@ export default function PersonalizationPage() {
 
             {/* Visibility toggles */}
             <motion.div initial="hidden" animate="visible">
-              <motion.div custom={4} variants={fadeUp} className="card-base">
+              <motion.div custom={6} variants={fadeUp} className="card-base">
                 <div className="flex items-center gap-2 mb-4">
                   <Eye className="w-5 h-5 text-blush" />
                   <h2 className="font-display text-lg font-semibold">Visibilidade</h2>
@@ -268,7 +482,7 @@ export default function PersonalizationPage() {
 
             {/* Publication */}
             <motion.div initial="hidden" animate="visible">
-              <motion.div custom={5} variants={fadeUp} className="card-base">
+              <motion.div custom={7} variants={fadeUp} className="card-base">
                 <div className="flex items-center gap-2 mb-4">
                   <Globe className="w-5 h-5 text-blush" />
                   <h2 className="font-display text-lg font-semibold">Publicação</h2>
@@ -328,7 +542,7 @@ export default function PersonalizationPage() {
           {/* Preview */}
           <div>
             <motion.div initial="hidden" animate="visible">
-              <motion.div custom={5} variants={fadeUp} className="sticky top-24">
+              <motion.div custom={8} variants={fadeUp} className="lg:sticky lg:top-24">
                 <div className="flex items-center gap-2 mb-3">
                   <Eye className="w-4 h-4 text-charcoal-light" />
                   <span className="text-sm font-medium">Pré-visualização</span>
@@ -337,32 +551,46 @@ export default function PersonalizationPage() {
                   {/* Preview card */}
                   <div
                     className="p-6 text-center"
-                    style={{ backgroundColor: p.primaryColor + '15' }}
+                    style={{ backgroundColor: primaryHex + '15' }}
                   >
+                    {p.heroImage && !heroFailed && (
+                      <img
+                        src={p.heroImage}
+                        alt=""
+                        onError={() => setHeroFailed(true)}
+                        className="w-full h-24 object-cover rounded-xl mb-3"
+                      />
+                    )}
                     <div
                       className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center"
-                      style={{ backgroundColor: p.primaryColor + '25' }}
+                      style={{ backgroundColor: primaryHex + '25' }}
                     >
-                      <Heart className="w-7 h-7" style={{ color: p.primaryColor }} />
+                      <Heart className="w-7 h-7" style={{ color: primaryHex }} />
                     </div>
                     <h3 className="font-display text-lg font-semibold mb-1">{event.hosts}</h3>
-                    <p className="text-xs text-charcoal-light mb-3">{event.name}</p>
+                    <p className="text-xs text-charcoal-light mb-3">{event.name || 'Evento sem nome'}</p>
                     {p.tagline && (
                       <p className="text-xs italic text-charcoal-light mb-4">"{p.tagline}"</p>
                     )}
                     {p.showCountdown && (
-                      <div className="flex justify-center gap-3 mb-4">
-                        {[
-                          { v: '47', l: 'dias' },
-                          { v: '8', l: 'horas' },
-                          { v: '23', l: 'min' },
-                        ].map((u, i) => (
-                          <div key={i} className="bg-white rounded-xl px-3 py-2 shadow-soft">
-                            <p className="font-display text-lg font-semibold" style={{ color: p.primaryColor }}>{u.v}</p>
-                            <p className="text-[9px] text-charcoal-light">{u.l}</p>
-                          </div>
-                        ))}
-                      </div>
+                      countdown.status === 'future' ? (
+                        <div className="flex justify-center gap-3 mb-4">
+                          {[
+                            { v: String(countdown.days), l: 'dias' },
+                            { v: String(countdown.hours), l: 'horas' },
+                            { v: String(countdown.minutes), l: 'min' },
+                          ].map((u, i) => (
+                            <div key={i} className="bg-white rounded-xl px-3 py-2 shadow-soft">
+                              <p className="font-display text-lg font-semibold" style={{ color: primaryHex }}>{u.v}</p>
+                              <p className="text-[9px] text-charcoal-light">{u.l}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm font-medium mb-4" style={{ color: secondaryHex }}>
+                          {countdown.status === 'today' ? 'É hoje! 🎉' : 'Evento realizado'}
+                        </p>
+                      )
                     )}
                     <div className="flex justify-center gap-1.5">
                       {p.showRsvp && (
