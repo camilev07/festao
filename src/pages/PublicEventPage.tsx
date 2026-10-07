@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, MapPin, Map, ExternalLink, Gift, Users } from 'lucide-react';
+import { Calendar, Clock, MapPin, Map, ExternalLink, Gift, Users, Heart } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { eventTypeMeta, safeHex, getCountdown, formatBRL } from '../lib/eventUtils';
+import type { Guest } from '../store/useStore';
+import { eventTypeMeta, safeHex, getCountdown, formatBRL, normalizeName } from '../lib/eventUtils';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -19,9 +20,66 @@ const isHttpUrl = (value: string) => /^https?:\/\//i.test(value);
 export default function PublicEventPage() {
   const { slug } = useParams<{ slug: string }>();
   const events = useStore((s) => s.events);
+  const addGuest = useStore((s) => s.addGuest);
+  const updateGuest = useStore((s) => s.updateGuest);
   const event = events.find((e) => e.slug === slug && e.published);
   const [heroFailed, setHeroFailed] = useState(false);
   const [now, setNow] = useState(() => new Date());
+
+  // RSVP form (hooks always run, before any early return)
+  const [rsvpChoice, setRsvpChoice] = useState<'confirmed' | 'declined' | ''>('');
+  const [rsvpName, setRsvpName] = useState('');
+  const [rsvpEmail, setRsvpEmail] = useState('');
+  const [rsvpPhone, setRsvpPhone] = useState('');
+  const [rsvpPlusOne, setRsvpPlusOne] = useState(false);
+  const [rsvpPlusOneName, setRsvpPlusOneName] = useState('');
+  const [rsvpNotes, setRsvpNotes] = useState('');
+  const [rsvpErrors, setRsvpErrors] = useState<{ name?: string; choice?: string }>({});
+  const [rsvpDone, setRsvpDone] = useState<{ name: string; choice: 'confirmed' | 'declined' } | null>(null);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 30000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const handleSubmitRsvp = () => {
+    if (!event) return;
+    const errors: { name?: string; choice?: string } = {};
+    if (!rsvpChoice) errors.choice = 'Escolha uma das opções.';
+    if (!rsvpName.trim()) errors.name = 'Informe seu nome completo.';
+    setRsvpErrors(errors);
+    if (errors.choice || errors.name || !rsvpChoice) return;
+
+    const choice: Guest['rsvp'] = rsvpChoice;
+    const respondedAt = new Date().toISOString();
+    const base = {
+      rsvp: choice,
+      plusOne: rsvpPlusOne,
+      plusOneName: rsvpPlusOne && rsvpPlusOneName.trim() ? rsvpPlusOneName.trim() : undefined,
+      notes: rsvpNotes.trim() || undefined,
+      respondedAt,
+      respondedVia: 'public' as const,
+    };
+
+    const existing = event.guests.find(
+      (g) => normalizeName(g.name) === normalizeName(rsvpName)
+    );
+    if (existing) {
+      updateGuest(event.id, existing.id, {
+        ...base,
+        ...(rsvpEmail.trim() ? { email: rsvpEmail.trim() } : {}),
+        ...(rsvpPhone.trim() ? { phone: rsvpPhone.trim() } : {}),
+      });
+    } else {
+      addGuest(event.id, {
+        ...base,
+        name: rsvpName.trim(),
+        email: rsvpEmail.trim(),
+        phone: rsvpPhone.trim(),
+      });
+    }
+    setRsvpDone({ name: rsvpName.trim(), choice: rsvpChoice });
+  };
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 30000);
@@ -188,9 +246,169 @@ export default function PublicEventPage() {
           </motion.div>
         )}
 
+        {/* RSVP */}
+        {p.showRsvp && (
+          <motion.div custom={4} variants={fadeUp} initial="hidden" animate="visible">
+            <div className="card-base">
+              <div className="flex items-center gap-2 mb-1">
+                <Heart className="w-5 h-5" style={{ color: secondaryHex }} />
+                <h2 className="font-display text-lg font-semibold">Confirme sua presença</h2>
+              </div>
+              <p className="text-xs text-charcoal-light mb-4">
+                Sua resposta ajuda os anfitriões a organizar tudo. Leva menos de um minuto.
+              </p>
+
+              {rsvpDone ? (
+                <div className="text-center py-4">
+                  <span className="text-4xl block mb-3">
+                    {rsvpDone.choice === 'confirmed' ? '🎉' : '💌'}
+                  </span>
+                  <p className="font-display text-xl font-semibold mb-2">
+                    {rsvpDone.choice === 'confirmed'
+                      ? `Presença confirmada! Obrigado, ${rsvpDone.name.split(' ')[0]}.`
+                      : 'Tudo bem, obrigado por responder! Vamos sentir sua falta.'}
+                  </p>
+                  <p className="text-sm text-charcoal-light mb-5">
+                    {rsvpDone.choice === 'confirmed'
+                      ? 'Já registramos a sua confirmação.'
+                      : 'Você pode alterar a resposta quando quiser.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setRsvpDone(null)}
+                    className="btn-secondary text-xs"
+                  >
+                    Alterar resposta
+                  </button>
+                </div>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSubmitRsvp();
+                  }}
+                  className="space-y-4"
+                >
+                  {/* Opções */}
+                  <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {([
+                        { value: 'confirmed' as const, label: 'Vou com certeza' },
+                        { value: 'declined' as const, label: 'Não poderei ir' },
+                      ]).map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setRsvpChoice(opt.value)}
+                          className="px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 min-h-[44px] border"
+                          style={
+                            rsvpChoice === opt.value
+                              ? { backgroundColor: secondaryHex, borderColor: secondaryHex, color: '#fff' }
+                              : { backgroundColor: '#fff', borderColor: 'rgba(45,41,38,0.15)', color: '#4A4543' }
+                          }
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    {rsvpErrors.choice && <p className="text-rose text-xs mt-1.5">{rsvpErrors.choice}</p>}
+                  </div>
+
+                  {/* Nome */}
+                  <div>
+                    <label className="text-xs font-medium text-charcoal-light block mb-1.5">
+                      Nome completo *
+                    </label>
+                    <input
+                      type="text"
+                      value={rsvpName}
+                      onChange={(e) => setRsvpName(e.target.value)}
+                      placeholder="Seu nome"
+                      className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30"
+                    />
+                    {rsvpErrors.name && <p className="text-rose text-xs mt-1.5">{rsvpErrors.name}</p>}
+                  </div>
+
+                  {/* Contato */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-charcoal-light block mb-1.5">
+                        E-mail (opcional)
+                      </label>
+                      <input
+                        type="email"
+                        value={rsvpEmail}
+                        onChange={(e) => setRsvpEmail(e.target.value)}
+                        placeholder="voce@email.com"
+                        className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-charcoal-light block mb-1.5">
+                        Telefone (opcional)
+                      </label>
+                      <input
+                        type="tel"
+                        value={rsvpPhone}
+                        onChange={(e) => setRsvpPhone(e.target.value)}
+                        placeholder="(11) 99999-9999"
+                        className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Acompanhante */}
+                  <div className="bg-cream/50 rounded-xl p-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={rsvpPlusOne}
+                        onChange={(e) => setRsvpPlusOne(e.target.checked)}
+                        className="w-4 h-4 rounded accent-blush"
+                      />
+                      <span className="text-sm">Vou levar acompanhante</span>
+                    </label>
+                    {rsvpPlusOne && (
+                      <input
+                        type="text"
+                        value={rsvpPlusOneName}
+                        onChange={(e) => setRsvpPlusOneName(e.target.value)}
+                        placeholder="Nome do acompanhante"
+                        className="w-full mt-3 bg-white rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30"
+                      />
+                    )}
+                  </div>
+
+                  {/* Observações */}
+                  <div>
+                    <label className="text-xs font-medium text-charcoal-light block mb-1.5">
+                      Observações (opcional)
+                    </label>
+                    <textarea
+                      value={rsvpNotes}
+                      onChange={(e) => setRsvpNotes(e.target.value)}
+                      placeholder="Restrições alimentares, alergias..."
+                      rows={3}
+                      className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blush/30 resize-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full text-white text-sm font-medium rounded-xl px-5 py-3 transition-colors duration-150 min-h-[44px]"
+                    style={{ backgroundColor: secondaryHex }}
+                  >
+                    Enviar resposta
+                  </button>
+                </form>
+              )}
+            </div>
+          </motion.div>
+        )}
+
         {/* Contagem de convidados */}
         {p.showGuestCount && (
-          <motion.div custom={4} variants={fadeUp} initial="hidden" animate="visible">
+          <motion.div custom={5} variants={fadeUp} initial="hidden" animate="visible">
             <div className="card-base flex items-center gap-3">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -207,7 +425,7 @@ export default function PublicEventPage() {
 
         {/* Presentes */}
         {p.showGiftList && event.gifts.length > 0 && (
-          <motion.div custom={5} variants={fadeUp} initial="hidden" animate="visible">
+          <motion.div custom={6} variants={fadeUp} initial="hidden" animate="visible">
             <div className="card-base">
               <div className="flex items-center gap-2 mb-4">
                 <Gift className="w-5 h-5" style={{ color: secondaryHex }} />
@@ -265,7 +483,7 @@ export default function PublicEventPage() {
         )}
 
         {/* Rodapé */}
-        <motion.div custom={6} variants={fadeUp} initial="hidden" animate="visible" className="text-center pt-2 pb-2">
+        <motion.div custom={7} variants={fadeUp} initial="hidden" animate="visible" className="text-center pt-2 pb-2">
           <p className="text-xs text-charcoal-light">
             Criado com{' '}
             <Link to="/" className="font-semibold hover:underline" style={{ color: secondaryHex }}>

@@ -295,8 +295,13 @@ export default function GuestsPage() {
                             Mesa {guest.table}
                           </span>
                         )}
+                        {guest.respondedVia === 'public' && (
+                          <span className="text-[10px] bg-sage/10 text-sage px-1.5 py-0.5 rounded">
+                            via página
+                          </span>
+                        )}
                       </div>
-                      <div className="flex items-center gap-3 mt-0.5">
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                         {guest.email && (
                           <span className="text-[11px] text-charcoal-light flex items-center gap-1">
                             <Mail className="w-3 h-3" />
@@ -310,13 +315,22 @@ export default function GuestsPage() {
                           </span>
                         )}
                       </div>
+                      {guest.notes && (
+                        <p className="text-[11px] text-charcoal-light/80 italic mt-0.5 truncate">
+                          Obs.: {guest.notes}
+                        </p>
+                      )}
                     </div>
 
                     {/* RSVP Status */}
                     <div className="flex items-center gap-2">
                       <select
                         value={guest.rsvp}
-                        onChange={(e) => updateGuest(event.id, guest.id, { rsvp: e.target.value as Guest['rsvp'] })}
+                        onChange={(e) => updateGuest(event.id, guest.id, {
+                          rsvp: e.target.value as Guest['rsvp'],
+                          respondedAt: new Date().toISOString(),
+                          respondedVia: 'host',
+                        })}
                         className={`text-xs font-medium px-3 py-1.5 rounded-xl border-0 outline-none cursor-pointer appearance-none pr-6 bg-no-repeat bg-[right_0.375rem_center] bg-[length:0.75rem] ${rsvpColors[guest.rsvp]}`}
                         style={{
                           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234A4543' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
